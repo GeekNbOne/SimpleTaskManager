@@ -4,7 +4,7 @@ Simple Task Manager is a Python library for launching tasks and keep track of th
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install SimpleTaskManager.
 
 ```bash
 pip install SimpleTaskManager
