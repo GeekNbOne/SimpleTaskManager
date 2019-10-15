@@ -14,11 +14,12 @@ class MessageType(Enum):
 
 class Task(Process):
 
-    def __init__(self, message_queue, *args, **kwargs):
+    def __init__(self, message_queue, run_queue, *args, **kwargs):
         super(Task, self).__init__()
         self._args = args
         self._kwargs = kwargs
         self._message_queue = message_queue
+        self._run_queue = run_queue
 
         self._id = uuid.uuid4()
 
@@ -32,8 +33,10 @@ class Task(Process):
     def update_status(self, msg):
         self._message_queue.put((self.id, MessageType.StatusUpdate, msg))
 
-    def run(self) -> None:
+    def launch_task(self, task, tags, *args):
+        self._run_queue.put((task, tags, args))
 
+    def run(self) -> None:
         try:
             self.target(*self._args, **self._kwargs)
         except Exception as e:

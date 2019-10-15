@@ -28,8 +28,10 @@ class TaskManager(object):
         self._observers = []
 
         self._message_queue = Queue()
+        self._run_queue = Queue()
 
         self._start_listener(self._process_message, self._message_queue)
+        self._start_listener(self.run_task, self._run_queue)
 
     def add_observer(self, observer: TaskObserver):
         with self._obs_lock:
@@ -40,11 +42,11 @@ class TaskManager(object):
             self._observers.remove(observer)
 
     def run_task(self, task, tags=None, *args, **kwargs):
-
         with self._r_lock:
-            t = task(self._message_queue, *args, **kwargs)
+            t = task(self._message_queue, self._run_queue, *args, **kwargs)
             self._running_tasks[t.id] = RunningTask(t, tags)
             t.start()
+
 
     @property
     def running_tasks(self):
@@ -64,7 +66,6 @@ class TaskManager(object):
                   MessageType.RaiseIssue: self._raise_issue,
                   MessageType.TaskSuccessful: self._task_successful,
                   MessageType.TaskError: self._task_error}
-
         mt_map[message_type](task_id, *args)
 
     def _start_listener(self, handle, queue):
