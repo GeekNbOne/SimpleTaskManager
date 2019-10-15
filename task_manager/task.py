@@ -2,8 +2,8 @@ from multiprocessing import Process
 from abc import abstractmethod
 import uuid
 from enum import Enum
-from datetime import datetime
 import traceback
+
 
 class MessageType(Enum):
     StatusUpdate = 1
@@ -26,26 +26,27 @@ class Task(Process):
     def id(self):
         return self._id
 
-    def raise_issue(self, severity, message, diagnostic):
-        self._message_queue.put((self.id,MessageType.RaiseIssue, severity, message, diagnostic))
+    def raise_issue(self, severity, tags, message, diagnostic):
+        self._message_queue.put((self.id, MessageType.RaiseIssue, severity, tags, message, diagnostic))
 
     def update_status(self, msg):
-        self._message_queue.put((self.id,MessageType.StatusUpdate, msg))
+        self._message_queue.put((self.id, MessageType.StatusUpdate, msg))
 
     def run(self) -> None:
-        self._start_time = datetime.now()
+
         try:
             self.target(*self._args, **self._kwargs)
         except Exception as e:
-            self._message_queue.put((self.id,MessageType.TaskError,f'{e.__class__.__name__}: {str(e)}',traceback.format_exc()))
+            self._message_queue.put(
+                (self.id, MessageType.TaskError, f'{e.__class__.__name__}: {str(e)}', traceback.format_exc()))
         else:
-            self._message_queue.put((self.id,MessageType.TaskSuccessful))
+            self._message_queue.put((self.id, MessageType.TaskSuccessful))
 
     @abstractmethod
     def target(self, *args, **kwargs):
         pass
 
+    @classmethod
     @property
-    def start_time(self):
-        return getattr(self,'_start_time',None)
-
+    def task_name(cls):
+        return cls.__name__

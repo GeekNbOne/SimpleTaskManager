@@ -4,7 +4,7 @@ import copy
 from .task import MessageType
 from .task_observer import TaskObserver
 from .completed_task import CompletedTask
-from datetime import datetime
+from .running_task import RunningTask
 
 
 class Listener(Thread):
@@ -24,7 +24,7 @@ class TaskManager(object):
     def __init__(self):
         self._r_lock = RLock()
         self._obs_lock = RLock()
-        self._tasks = {}
+        self._running_tasks = {}
         self._observers = []
 
         self._message_queue = Queue()
@@ -40,25 +40,24 @@ class TaskManager(object):
             self._observers.remove(observer)
 
     def run_task(self, task, tags=None, *args, **kwargs):
-        if tags is None:
-            tags = {}
 
-        t = task(self._message_queue, *args, **kwargs)
-        self._tasks[t.id] = {'ref': t, 'status': 'Just started', 'issues': [], 'tags': tags}
-        t.start()
+        with self._r_lock:
+            t = task(self._message_queue, *args, **kwargs)
+            self._running_tasks[t.id] = RunningTask(t, tags)
+            t.start()
 
     @property
-    def tasks(self):
+    def running_tasks(self):
         with self._r_lock:
-            return copy.copy(self._tasks)
+            return copy.copy(self._running_tasks)
 
-    def get_task(self,task_id):
+    def get_running_task(self, task_id):
         with self._r_lock:
-            return self._tasks[task_id]
+            return self._running_tasks[task_id]
 
     @property
     def is_running(self):
-        return len(self._tasks) > 0
+        return len(self._running_tasks) > 0
 
     def _process_message(self, task_id, message_type, *args):
         mt_map = {MessageType.StatusUpdate: self._update_status,
@@ -80,35 +79,27 @@ class TaskManager(object):
 
     def _update_status(self, task_id, message):
         with self._r_lock:
-            self._tasks[task_id]['status'] = message
+            self._running_tasks[task_id].status = message
 
     def _task_error(self, task_id, message, traceback):
-
-        def set_error(completed_task):
-            completed_task.set_error(message, traceback)
-
-        self._end_task(task_id, set_error)
+        self._end_task(task_id, message, traceback)
 
     def _task_successful(self, task_id):
-
         self._end_task(task_id)
 
-    def _get_completed_task(self, reg_task):
-        task = reg_task['ref']
-        return CompletedTask(task.__class__.__name__, reg_task['tags'], reg_task['issues'],task.start_time, datetime.now())
+    def _end_task(self, task_id, error=None, traceback=None):
+        task = self.get_running_task(task_id)
 
-    def _end_task(self, task_id, handle=None):
-        reg_task = self.get_task(task_id)
-        task = reg_task['ref']
-
-        completed_task = self._get_completed_task(reg_task)
-        if handle is not None:
-            handle(completed_task)
+        completed_task = task.complete(error, traceback)
 
         self._notify_observer(completed_task)
-        with self._r_lock:
-            task.join()
-            del self._tasks[task.id]
 
-    def _raise_issue(self, task_id, severity, message, diagnostic):
-        self._tasks[task_id]['issues'].append((severity, message, diagnostic))
+        with self._r_lock:
+            task.ref.join()
+            del self._running_tasks[task_id]
+
+    def _raise_issue(self, task_id, severity, tags, message, diagnostic):
+        if tags is None:
+            tags = {}
+
+        self._running_tasks[task_id].issues.append((severity, tags, message, diagnostic))

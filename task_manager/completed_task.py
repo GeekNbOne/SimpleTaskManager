@@ -1,7 +1,8 @@
 class CompletedTask(object):
 
-    def __init__(self, name,tags, issues, start_time, end_time):
+    def __init__(self, name,type,tags, issues, start_time, end_time):
         self._name = name
+        self._type = type
         self._error = None
         self._issues = issues
         self._start_time = start_time
@@ -10,6 +11,10 @@ class CompletedTask(object):
 
     def set_error(self, message, traceback):
         self._error = {'message': message, 'traceback': traceback}
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def successful(self):
@@ -34,6 +39,10 @@ class CompletedTask(object):
     @property
     def tags(self):
         return self._tags
+
+    @property
+    def type(self):
+        return self._type
 
     def __repr__(self):
         if self.successful:
