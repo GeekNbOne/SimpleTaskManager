@@ -9,5 +9,5 @@ setup(
     #url='http://pypi.python.org/pypi/TowelStuff/',
    #license='LICENSE.txt',
     description='Simple Task Manager is a Python library for launching tasks and keep track of them.',
-    long_description=open('README').read(),
+    long_description=open('README.md').read(),
 )
