@@ -28,8 +28,10 @@ class TaskManager(object):
         self._observers = []
 
         self._message_queue = Queue()
+        self._process_queue = Queue()
 
         self._start_listener(self._process_message, self._message_queue)
+
 
     def add_observer(self, observer: TaskObserver):
         with self._obs_lock:
